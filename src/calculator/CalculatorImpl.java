@@ -2,13 +2,13 @@ package calculator;
 
 public class CalculatorImpl implements Calculator {
 
-    //  Объявление лексем
+    // Объявление лексем
     final int NONE = 0;         //  FAIL
     final int DELIMITER = 1;    //  Разделитель(+-*/^=, ")", "(" )
     final int VARIABLE = 2;     //  Переменная
     final int NUMBER = 3;       //  Число
 
-    //  Лексема, определяющая конец выражения
+    // Лексема, определяющая конец выражения
     final String EOF = "\0";
 
     private String exp;     //  Ссылка на строку с выражением
@@ -17,97 +17,106 @@ public class CalculatorImpl implements Calculator {
     private int tokType;    //  Сохранение типа лексемы
 
 
-    public String toString(){
-        return String.format("Exp = {0}\nexplds = {1}\nToken = {2}\nTokType = {3}", exp.toString(), explds,
-                token.toString(), tokType);
+    public String toString() {
+        return String.format("Exp = {0}\nexplds = {1}\nToken = {2}\nTokType = {3}", exp, explds,
+                token, tokType);
     }
 
-    //  Получить следующую лексему
-    private void getToken(){
+    // Получить следующую лексему
+    // При выполнении проверки сохраняем символ в переменную класса token
+    private void getToken() {
         tokType = NONE;
         token = "";
 
         //  Проверка на окончание выражения
-        if(explds == exp.length()){
+        if (explds == exp.length()) {
             token = EOF;
             return;
         }
-        //  Проверка на пробелы, если есть пробел - игнорируем его.
-        while(explds < exp.length() && Character.isWhitespace(exp.charAt(explds)))
-            ++ explds;
-        //  Проверка на окончание выражения
-        if(explds == exp.length()){
-            token = EOF;
-            return;
-        }
-        if(isDelim(exp.charAt(explds))){
+        // Проверка на пробелы, если есть пробел - игнорируем его.
+        // Character.isWhitespace() — определяет в Java, является ли указанное значение типа char
+        // пустым пространством, которое включает в себя пробел, табуляцию или новую строку.
+        // charAt() — возвращает символ, расположенный по указанному индексу строки
+        while (explds < exp.length() && Character.isWhitespace(exp.charAt(explds)))
+            ++explds;
+        if (isOperation(exp.charAt(explds))) {
             token += exp.charAt(explds);
             explds++;
             tokType = DELIMITER;
-        }
-        else if(Character.isLetter(exp.charAt(explds))){
-            while(!isDelim(exp.charAt(explds))){
+            // Character.isLetter() — в Java определяет, является ли указанное значение типа char буквой.
+        } else if (Character.isLetter(exp.charAt(explds))) {
+            while (!isOperation(exp.charAt(explds))) {
                 token += exp.charAt(explds);
                 explds++;
-                if(explds >= exp.length())
+                //Выходим из цикла если текущий индекс в выражении вышел за пределы нашей строки
+                if (explds >= exp.length())
                     break;
             }
             tokType = VARIABLE;
-        }
-        else if (Character.isDigit(exp.charAt(explds))){
-            while(!isDelim(exp.charAt(explds))){
+            // Character.isDigit() — определяет, является ли указанное значение типа char цифрой
+        } else if (Character.isDigit(exp.charAt(explds))) {
+            while (!isOperation(exp.charAt(explds))) {
                 token += exp.charAt(explds);
                 explds++;
-                if(explds >= exp.length())
+                //Выходим из цикла если текущий индекс в выражении вышел за пределы нашей строки
+                if (explds >= exp.length())
                     break;
             }
             tokType = NUMBER;
-        }
-        else {
+        } else {
             token = EOF;
-            return;
         }
     }
 
-    private boolean isDelim(char charAt) {
-        if((" +-/*%^=()".indexOf(charAt)) != -1)
-            return true;
-        return false;
+    //Проверка является ли данный символ арифметической операцией
+    // charAt() — возвращает символ, расположенный по указанному индексу строки
+    private boolean isOperation(char charAt) {
+        return (" +-/*%^=()".indexOf(charAt)) != -1;
     }
 
     //  Точка входа анализатора
     public Double evaluate(String expstr) {
 
         double result;
-
+        //Сохраняем нашу строку в переменную класса
         exp = expstr;
         explds = 0;
+        //Получаем следующий символ
         getToken();
 
-        if(token.equals(EOF))
-            return null;  //  Нет выражения
+        if (token.equals(EOF))
+            return null;  // Нет выражения
 
-        //  Анализ и вычисление выражения
-        result = evalExp2();
+        // Анализ и вычисление выражения
+        try {
+            result = evalExp2();
+        } catch (CalcExeption calcExeption) {
+            return null;
+        }
 
-        if(!token.equals(EOF))
+        if (!token.equals(EOF))
             return null;
 
         return result;
     }
 
     //  Сложить или вычислить два терма
-    private double evalExp2() {
+    private double evalExp2() throws CalcExeption {
 
+        // Переменная для хранения символа
         char op;
+        // Результат
         double result;
+        // Частичный результат
         double partialResult;
         result = evalExp3();
-        while((op = token.charAt(0)) == '+' ||
-                op == '-'){
+        // charAt() — возвращает символ, расположенный по указанному индексу строки
+        while ((op = token.charAt(0)) == '+' ||
+                op == '-') {
+            //Получаем следующий символ
             getToken();
             partialResult = evalExp3();
-            switch(op){
+            switch (op) {
                 case '-':
                     result -= partialResult;
                     break;
@@ -120,108 +129,86 @@ public class CalculatorImpl implements Calculator {
     }
 
     //  Умножить или разделить два фактора
-    private Double evalExp3() {
-
+    private Double evalExp3() throws CalcExeption {
+        // Переменная для хранения символа
         char op;
+        // Результат
         double result;
+        // Частичный результат
         double partialResult;
 
         result = evalExp4();
-        while((op = token.charAt(0)) == '*' ||
-                op == '/' | op == '%'){
+        // charAt() — возвращает символ, расположенный по указанному индексу строки
+        while ((op = token.charAt(0)) == '*' ||
+                op == '/') {
+            //Получаем следующий символ
             getToken();
             partialResult = evalExp4();
-            switch(op){
+            switch (op) {
                 case '*':
                     result *= partialResult;
                     break;
                 case '/':
-                    if(partialResult == 0.0)
+                    if (partialResult == 0.0)
                         return null;
                     result /= partialResult;
-                    break;
-                case '%':
-                    if(partialResult == 0.0)
-                        return null;
-                    result %= partialResult;
                     break;
             }
         }
         return result;
     }
 
-    //  Выполнить возведение в степень
-    private double evalExp4() {
-
-        double result;
-        double partialResult;
-        double ex;
-        int t;
-        result = evalExp5();
-        if(token.equals("^")){
-            getToken();
-            partialResult = evalExp4();
-            ex = result;
-            if(partialResult == 0.0){
-                result = 1.0;
-            }else
-                for(t = (int)partialResult - 1; t >  0; t--)
-                    result *= ex;
-        }
-        return result;
-    }
-
     //  Определить унарные + или -
-    private double evalExp5() {
+    private double evalExp4() throws CalcExeption {
+        // Результат
         double result;
+        // Переменная для хранения символа
+        String op = " ";
 
-        String op;
-        op = " ";
-
-        if((tokType == DELIMITER) && token.equals("+") ||
-                token.equals("-")){
+        if ((tokType == DELIMITER) && token.equals("+") ||
+                token.equals("-")) {
             op = token;
+            //Получаем следующий символ
             getToken();
         }
-        result = evalExp6();
-        if(op.equals("-"))
-            result =  -result;
+        result = evalExp5();
+        if (op.equals("-"))
+            result = -result;
         return result;
     }
 
     //  Обработать выражение в скобках
-    private Double evalExp6() {
+    private Double evalExp5() throws CalcExeption {
+        // Результат
         double result;
 
-        if(token.equals("(")){
+        if (token.equals("(")) {
+            //Получаем следующий символ
             getToken();
             result = evalExp2();
-            if(!token.equals(")"))
+            if (!token.equals(")"))
                 return null;
+            //Получаем следующий символ
             getToken();
-        }
-        else
+        } else
             result = atom();
         return result;
     }
 
     //  Получить значение числа
-    private Double atom() {
-
+    private Double atom() throws CalcExeption {
+        // Результат
         double result = 0.0;
-        switch(tokType){
-            case NUMBER:
-                try{
-                    result = Double.parseDouble(token);
-                }
-                catch(NumberFormatException exc){
-                    return null;
-                }
-                getToken();
 
-                break;
-            default:
-                return null;
+        if (tokType == NUMBER) {
+            try {
+                result = Double.parseDouble(token);
+            } catch (NumberFormatException exc) {
+                throw new CalcExeption();
+            }
+            getToken();
+        } else {
+            throw new CalcExeption();
         }
         return result;
     }
